@@ -7,9 +7,14 @@ router.post("/signUp", User.create);
 
 // Retrieve all Tutorials
 router.get("/", User.findAll);
-router.get('/getSongs', User.getUserSongs);
+router.post("/token", User.checkToken);
+router.get("/getSongs", User.getUserSongs);
 
 router.post("/login", User.findOne);
+router.delete("/logout", (req, res) => {
+  refreshTokens = refreshTokens.filter((token) => token !== req.body.token);
+  res.sendStatus(204);
+});
 
 // // Retrieve all published Tutorials
 // router.get("/published", tutorials.findAllPublished);

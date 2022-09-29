@@ -3,7 +3,7 @@ const Song = db.Song;
 exports.create = (req, res) => {
   // Create a Song
   const song = {
-    username: req.body.songname,
+    songname: req.body.songname,
     artist: req.body.artist,
     username: req.body.username,
   };

@@ -6,6 +6,8 @@ const song = db.Song;
 const jwt = require("jsonwebtoken");
 const { Song } = require("../models");
 
+let refreshTokens = [];
+
 // Create and Save a new Tutorial
 exports.create = (req, res) => {
   // Validate request
@@ -26,10 +28,17 @@ exports.create = (req, res) => {
   // Save Tutorial in the database
   User.create(user)
     .then((data) => {
-      const accessToken = jwt.sign(data.username, "user", { expiresIn: "50s" });
-      res.send(
-        `User ${data.username} registered successfully with key ${accessToken}`
-      );
+      const accessToken = jwt.sign({ username: data.username }, "user", {
+        expiresIn: "5m",
+      });
+      const refreshToken = jwt.sign({ username: data.username }, "refresh");
+      refreshTokens.push(refreshToken);
+      const user = {
+        user: data.username,
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+      };
+      res.send(JSON.stringify(user));
     })
     .catch((err) => {
       res.status(500).send({
@@ -58,7 +67,13 @@ exports.findOne = (req, res) => {
 
   User.findOne({ where: condition })
     .then((data) => {
-      if (bcrypt.compareSync(password, data.password)) res.send(data);
+      if (bcrypt.compareSync(password, data.password)) {
+        let token = req.body.token;
+        let decodedToken = jwt.verify(token, "user");
+        if (decodedToken) res.send(data);
+      } else {
+        res.send("Token sent is incorrect");
+      }
     })
     .catch((err) => {
       res.status(500).send({
@@ -74,10 +89,61 @@ exports.getUserSongs = (req, res) => {
         as: "song",
       },
     ],
-    where: { username: req.body.username },
+    where: { id: parseInt(req.body.username) },
   })
     .then((data) => {
       res.send(data);
     })
     .catch((err) => res.send(err));
+};
+
+//Delete user
+exports.destroy = (req, res) => {
+  const username = req.body.username;
+  var condition = { username: { [Op.iLike]: `${username}` } };
+
+  User.destroy({ where: condition })
+    .then((data) => {
+      res.send("User successfully deleted");
+    })
+    .catch((err) => {
+      res.status(500).send({
+        message: err.message || "Some error occurred while deleting user.",
+      });
+    });
+};
+
+//Update user
+exports.update = (req, res) => {
+  const username = req.body.username;
+  var condition = { username: { [Op.iLike]: `${username}` } };
+
+  User.update({ email: req.body.email }, { where: condition })
+    .then((data) => {
+      res.send("User updated successfully deleted");
+    })
+    .catch((err) => {
+      res.status(500).send({
+        message: err.message || "Some error occurred while updating user.",
+      });
+    });
+};
+
+//Check refresh token
+exports.checkToken = (req, res) => {
+  const token = req.body.refreshToken;
+  if (token == null) res.sendStatus(500);
+  if (!refreshTokens.includes(token)) {
+    res.send(403);
+  } else {
+    jwt.verify(token, "refresh", (err, data) => {
+      if (err) res.sendStatus(503);
+      else {
+        const accessToken = jwt.sign({ username: data.username }, "user", {
+          expiresIn: "5m",
+        });
+        res.json(accessToken);
+      }
+    });
+  }
 };
